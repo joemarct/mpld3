@@ -838,4 +838,69 @@ class MouseXPosition(PluginBase):
                       "fontsize": fontsize,
                       "fmt": fmt}
 
+class XLabelLink(plugins.PluginBase):
+    """XLabelLink plugin"""
+    
+    JAVASCRIPT = """
+    mpld3.register_plugin("xlabellink", XLabelLink);
+    XLabelLink.prototype = Object.create(mpld3.Plugin.prototype);
+    XLabelLink.prototype.constructor = XLabelLink;
+    XLabelLink.prototype.defaultProps = {urls: null};
+    function XLabelLink(fig, props){
+        mpld3.Plugin.call(this, fig, props);
+    };
+    
+    var urls;
+    var fig_id;
+    var buildXLabels = function() {
+        var svg = "div#" + fig_id + " svg";
+        var labels = d3.selectAll(svg + " g.mpld3-xaxis g.tick text");
+        labels.each(function() {
+            var label = d3.select(this);
+            label.attr('style', label.attr('style') + 'cursor: hand;');
+            label.on('click', function(){
+                var url = urls[label.text()];
+                window.open(url);
+            });
+            var bbox = label[0][0].getBBox();
+            var parent = d3.select(this.parentNode);
+            parent.insert("rect", "text")
+                .style("fill", "#FFF")
+                .attr("x", bbox.x)
+                .attr("y", bbox.y)
+                .attr("width", bbox.width)
+                .attr("height", bbox.height);
+        })
+    }
+    
+    XLabelLink.prototype.draw = function(){
+        urls = $.parseJSON(this.props['urls']);
+        fig_id = this.fig.figid;
+        buildXLabels();
+        
+        var zoom =  d3.behavior.zoom()
+            .on('zoomend', buildXLabels);
+        
+        var drag =  d3.behavior.drag()
+            .on('dragend', buildXLabels);
+            
+        d3.select("div#" + fig_id + " svg")
+            .call(zoom)
+            .on("mousedown.zoom", null)
+            .on("touchstart.zoom", null)
+            .on("touchmove.zoom", null)
+            .on("touchend.zoom", null)
+            .call(drag);
+    }
+    """
+    
+    def __init__(self, urls_dict):
+        # Convert the url mapping dict to json
+        urls = json.dumps(urls_dict)
+        # Build the dictionary of properties to be transmitted to the XLabelLink prototype
+        self.dict_ = {
+            "type": "xlabellink",
+            "urls": urls
+        }
+
 DEFAULT_PLUGINS = [Reset(), Zoom(), BoxZoom()]
